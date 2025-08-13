@@ -19,21 +19,25 @@ def index():
         # Get recent migrations
         recent_migrations = MigrationJob.query.order_by(MigrationJob.created_at.desc()).limit(5).all()
         
-        return render_template('dashboard.html',
-                             oracle_count=oracle_count,
-                             es_count=es_count,
-                             mapping_count=mapping_count,
-                             migration_count=migration_count,
-                             recent_migrations=recent_migrations)
+        return render_template(
+            'index.html',
+            oracle_connections=oracle_count,
+            es_connections=es_count,
+            mappings=mapping_count,
+            migration_count=migration_count,
+            recent_migrations=recent_migrations,
+        )
     except Exception as e:
         logger.error(f"Error loading dashboard: {str(e)}")
         flash('Error loading dashboard', 'error')
-        return render_template('dashboard.html',
-                             oracle_count=0,
-                             es_count=0,
-                             mapping_count=0,
-                             migration_count=0,
-                             recent_migrations=[])
+        return render_template(
+            'index.html',
+            oracle_connections=0,
+            es_connections=0,
+            mappings=0,
+            migration_count=0,
+            recent_migrations=[],
+        )
 
 @main_bp.route('/oracle-explorer')
 def oracle_explorer():
@@ -48,7 +52,7 @@ def elasticsearch_explorer():
 @main_bp.route('/mapping-interface')
 def mapping_interface():
     """Field mapping interface"""
-    return render_template('field_mapping.html')
+    return render_template('mapping_interface.html')
 
 @main_bp.route('/advanced-mapping')
 def advanced_mapping():
