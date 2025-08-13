@@ -3,7 +3,7 @@ Advanced Migration Routes
 Handles sophisticated migration operations with real-time monitoring
 """
 
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, current_app
 import threading
 import logging
 
@@ -58,12 +58,14 @@ def start_advanced_migration():
             max_workers=max_workers
         )
         
-        # Start migration in background thread
-        migration_thread = threading.Thread(
-            target=migration_service.start_advanced_migration,
-            args=(job.id, migration_strategy),
-            daemon=True
-        )
+        # Start migration in background thread with proper app context
+        flask_app = current_app._get_current_object()
+
+        def run_migration():
+            with flask_app.app_context():
+                migration_service.start_advanced_migration(job.id, migration_strategy)
+
+        migration_thread = threading.Thread(target=run_migration, daemon=True)
         migration_thread.start()
         
         return jsonify({
