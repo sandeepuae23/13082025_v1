@@ -21,14 +21,61 @@ class OracleService:
         try:
             # For development purposes - would normally use cx_Oracle
             logger.info(f"Connecting to Oracle: {self.connection_config.host}:{self.connection_config.port}")
-            
+
             # Mock connection for now
             self._connection = "mock_oracle_connection"
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to connect to Oracle: {e}")
             return False
+
+    def get_tables(self) -> List[Dict[str, Any]]:
+        """Retrieve available tables from the Oracle connection"""
+        try:
+            if not self._connection:
+                self.connect()
+
+            # Return mock table information
+            return [
+                {'table_name': 'ORDERS', 'num_rows': 1000},
+                {'table_name': 'CUSTOMERS', 'num_rows': 500},
+                {'table_name': 'ORDER_ITEMS', 'num_rows': 5000},
+                {'table_name': 'PRODUCTS', 'num_rows': 200}
+            ]
+        except Exception as e:
+            logger.error(f"Error fetching tables: {e}")
+            return []
+
+    def get_table_columns(self, table_name: str) -> List[Dict[str, Any]]:
+        """Retrieve column metadata for a specific table"""
+        try:
+            if not self._connection:
+                self.connect()
+
+            fields = self._get_mock_table_fields(table_name)
+            return [
+                {
+                    'column_name': field['name'],
+                    'data_type': field['type'],
+                    'data_length': None,
+                    'nullable': True,
+                    'elasticsearch_type': self._map_oracle_to_es(field['type'])
+                }
+                for field in fields
+            ]
+        except Exception as e:
+            logger.error(f"Error fetching columns for {table_name}: {e}")
+            return []
+
+    def _map_oracle_to_es(self, oracle_type: str) -> str:
+        """Map Oracle data types to Elasticsearch types"""
+        oracle_type = oracle_type.upper()
+        if 'NUMBER' in oracle_type:
+            return 'integer'
+        if 'DATE' in oracle_type or 'TIMESTAMP' in oracle_type:
+            return 'date'
+        return 'text'
     
     def analyze_query(self, query: str) -> Dict[str, Any]:
         """Analyze Oracle query and extract metadata"""
