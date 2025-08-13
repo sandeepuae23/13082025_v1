@@ -1,0 +1,814 @@
+{% extends "base.html" %}
+
+{% block title %}Oracle to Elasticsearch Migration - Deep Dive{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Migration Strategy Selection -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-rocket me-2"></i>
+                        Advanced Migration Strategies
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card h-100 border-primary">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-database fa-3x text-primary mb-3"></i>
+                                    <h6>Full Migration</h6>
+                                    <p class="text-muted small">Complete one-time data transfer with bulk loading optimization</p>
+                                    <button class="btn btn-primary btn-sm" onclick="startMigration('full')">
+                                        Start Full Migration
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100 border-info">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-sync-alt fa-3x text-info mb-3"></i>
+                                    <h6>Incremental Migration</h6>
+                                    <p class="text-muted small">Ongoing synchronization using change data capture</p>
+                                    <button class="btn btn-info btn-sm" onclick="startMigration('incremental')">
+                                        Start Incremental
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100 border-success">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-layer-group fa-3x text-success mb-3"></i>
+                                    <h6>Hybrid Migration</h6>
+                                    <p class="text-muted small">Initial bulk load followed by incremental updates</p>
+                                    <button class="btn btn-success btn-sm" onclick="startMigration('hybrid')">
+                                        Start Hybrid
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Real-time Migration Metrics -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Real-time Migration Metrics
+                    </h5>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="refreshMetrics()">
+                        <i class="fas fa-refresh me-1"></i>Refresh
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h3 id="totalRecords">0</h3>
+                                    <p class="mb-0">Total Records</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h3 id="processedRecords">0</h3>
+                                    <p class="mb-0">Processed</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body text-center">
+                                    <h3 id="failedRecords">0</h3>
+                                    <p class="mb-0">Failed</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h3 id="recordsPerSecond">0</h3>
+                                    <p class="mb-0">Records/sec</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div class="mt-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold">Migration Progress</span>
+                            <span id="progressPercentage">0%</span>
+                        </div>
+                        <div class="progress" style="height: 25px;">
+                            <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 0%">
+                                <span id="progressText">Starting...</span>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-muted small">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <strong>Elapsed:</strong> <span id="elapsedTime">00:00:00</span>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>ETA:</strong> <span id="estimatedCompletion">Calculating...</span>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>Current Batch:</strong> <span id="currentBatch">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Advanced Configuration Panel -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-cogs me-2"></i>
+                        Performance Tuning
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Batch Size</label>
+                        <input type="number" class="form-control" id="batchSize" value="5000" min="100" max="50000">
+                        <div class="form-text">Records per batch (optimal: 1000-10000)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Parallel Workers</label>
+                        <input type="number" class="form-control" id="parallelWorkers" value="4" min="1" max="16">
+                        <div class="form-text">Number of concurrent threads</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">ES Refresh Interval</label>
+                        <select class="form-select" id="refreshInterval">
+                            <option value="1s">1 second (real-time)</option>
+                            <option value="5s">5 seconds</option>
+                            <option value="30s" selected>30 seconds (optimal)</option>
+                            <option value="60s">60 seconds</option>
+                            <option value="-1">Manual refresh only</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-shield-alt me-2"></i>
+                        Error Handling & Recovery
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Retry Strategy</label>
+                        <select class="form-select" id="retryStrategy">
+                            <option value="exponential">Exponential Backoff</option>
+                            <option value="linear">Linear Backoff</option>
+                            <option value="fixed">Fixed Delay</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Max Retries</label>
+                        <input type="number" class="form-control" id="maxRetries" value="3" min="0" max="10">
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="enableDLQ" checked>
+                            <label class="form-check-label" for="enableDLQ">
+                                Enable Dead Letter Queue
+                            </label>
+                        </div>
+                        <div class="form-text">Store failed records for later reprocessing</div>
+                    </div>
+                    <button class="btn btn-warning btn-sm" onclick="reprocessFailedRecords()">
+                        <i class="fas fa-redo me-1"></i>
+                        Reprocess Failed Records
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Type Mapping Visualization -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-exchange-alt me-2"></i>
+                        Advanced Data Type Mappings
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Oracle Type</th>
+                                    <th>Elasticsearch Type</th>
+                                    <th>Transformation Rules</th>
+                                    <th>Performance Impact</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="typeMappingTable">
+                                <tr>
+                                    <td><code>VARCHAR2(4000)</code></td>
+                                    <td><code>text + keyword</code></td>
+                                    <td>
+                                        <span class="badge bg-info">Auto-analyzer</span>
+                                        <span class="badge bg-secondary">Keyword field</span>
+                                    </td>
+                                    <td><span class="badge bg-success">Low</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary">Configure</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>NUMBER(10,2)</code></td>
+                                    <td><code>scaled_float</code></td>
+                                    <td>
+                                        <span class="badge bg-warning">Scale: 100</span>
+                                    </td>
+                                    <td><span class="badge bg-success">Low</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary">Configure</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>TIMESTAMP</code></td>
+                                    <td><code>date</code></td>
+                                    <td>
+                                        <span class="badge bg-info">ISO 8601</span>
+                                        <span class="badge bg-secondary">UTC timezone</span>
+                                    </td>
+                                    <td><span class="badge bg-success">Low</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary">Configure</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>CLOB</code></td>
+                                    <td><code>text</code></td>
+                                    <td>
+                                        <span class="badge bg-warning">Size limit: 32KB</span>
+                                        <span class="badge bg-info">Full-text search</span>
+                                    </td>
+                                    <td><span class="badge bg-warning">Medium</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary">Configure</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>BLOB</code></td>
+                                    <td><code>binary/external</code></td>
+                                    <td>
+                                        <span class="badge bg-danger">Base64 encoding</span>
+                                        <span class="badge bg-warning">External storage</span>
+                                    </td>
+                                    <td><span class="badge bg-danger">High</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary">Configure</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Migration Validation Results -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Migration Validation Results
+                    </h6>
+                    <button class="btn btn-outline-primary btn-sm" onclick="runValidation()">
+                        <i class="fas fa-play me-1"></i>
+                        Run Validation
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="validationResults" class="d-none">
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <div class="display-4 mb-2" id="overallScore">95%</div>
+                                    <h6>Overall Score</h6>
+                                </div>
+                            </div>
+                            <div class="col-md-9">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="card bg-light">
+                                            <div class="card-body text-center py-2">
+                                                <h6 class="text-success mb-1" id="recordCountScore">98%</h6>
+                                                <small>Record Count</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="card bg-light">
+                                            <div class="card-body text-center py-2">
+                                                <h6 class="text-success mb-1" id="dataAccuracyScore">94%</h6>
+                                                <small>Data Accuracy</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="card bg-light">
+                                            <div class="card-body text-center py-2">
+                                                <h6 class="text-warning mb-1" id="typeValidationScore">89%</h6>
+                                                <small>Type Mapping</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="card bg-light">
+                                            <div class="card-body text-center py-2">
+                                                <h6 class="text-success mb-1" id="indexHealthScore">100%</h6>
+                                                <small>Index Health</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion" id="validationAccordion">
+                            <div class="accordion-item">
+                                <h6 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#recordCountDetails">
+                                        Record Count Validation
+                                        <span class="badge bg-success ms-2">PASS</span>
+                                    </button>
+                                </h6>
+                                <div id="recordCountDetails" class="accordion-collapse collapse" data-bs-parent="#validationAccordion">
+                                    <div class="accordion-body">
+                                        <div class="row">
+                                            <div class="col-md-4">
+                                                <strong>Oracle Records:</strong> <span id="oracleCount">1,234,567</span>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <strong>Elasticsearch Records:</strong> <span id="esCount">1,234,456</span>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <strong>Difference:</strong> <span id="countDifference" class="text-warning">111</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="accordion-item">
+                                <h6 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#dataAccuracyDetails">
+                                        Data Accuracy Validation
+                                        <span class="badge bg-success ms-2">PASS</span>
+                                    </button>
+                                </h6>
+                                <div id="dataAccuracyDetails" class="accordion-collapse collapse" data-bs-parent="#validationAccordion">
+                                    <div class="accordion-body">
+                                        <p>Sample validation of 1,000 random records:</p>
+                                        <div class="row">
+                                            <div class="col-md-4">
+                                                <strong>Matching Records:</strong> <span id="matchingRecords">940</span>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <strong>Mismatched Records:</strong> <span id="mismatchedRecords">60</span>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <strong>Match Rate:</strong> <span id="matchRate">94%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="validationPlaceholder" class="text-center text-muted py-5">
+                        <i class="fas fa-play-circle fa-3x mb-3"></i>
+                        <p>Click "Run Validation" to verify migration accuracy and data integrity</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Complex Query Translation Examples -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-code me-2"></i>
+                        Complex Query Translation Examples
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Oracle Query with JOINs</h6>
+                            <pre class="bg-dark text-light p-3 rounded"><code>SELECT 
+    o.order_id,
+    o.order_date,
+    o.total_amount,
+    c.customer_name,
+    c.email,
+    oi.product_id,
+    oi.quantity,
+    p.product_name
+FROM orders o
+JOIN customers c ON o.customer_id = c.customer_id
+JOIN order_items oi ON o.order_id = oi.order_id
+JOIN products p ON oi.product_id = p.product_id
+WHERE o.order_date >= '2024-01-01'</code></pre>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Elasticsearch Nested Document</h6>
+                            <pre class="bg-primary text-light p-3 rounded"><code>{
+  "order_id": 12345,
+  "order_date": "2024-01-15T10:30:00Z",
+  "total_amount": 299.99,
+  "customer": {
+    "name": "John Doe",
+    "email": "john.doe@example.com"
+  },
+  "items": [
+    {
+      "product_id": 101,
+      "product_name": "Widget A",
+      "quantity": 2,
+      "unit_price": 49.99
+    }
+  ]
+}</code></pre>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Oracle Aggregation Query</h6>
+                            <pre class="bg-dark text-light p-3 rounded"><code>SELECT 
+    EXTRACT(YEAR FROM order_date) as year,
+    EXTRACT(MONTH FROM order_date) as month,
+    COUNT(*) as order_count,
+    SUM(total_amount) as total_revenue,
+    AVG(total_amount) as avg_order_value
+FROM orders 
+GROUP BY EXTRACT(YEAR FROM order_date), 
+         EXTRACT(MONTH FROM order_date)
+ORDER BY year, month</code></pre>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Elasticsearch Aggregation</h6>
+                            <pre class="bg-info text-light p-3 rounded"><code>{
+  "aggs": {
+    "orders_by_date": {
+      "date_histogram": {
+        "field": "order_date",
+        "calendar_interval": "month",
+        "format": "yyyy-MM"
+      },
+      "aggs": {
+        "order_count": {
+          "value_count": {"field": "order_id"}
+        },
+        "total_revenue": {
+          "sum": {"field": "total_amount"}
+        },
+        "avg_order_value": {
+          "avg": {"field": "total_amount"}
+        }
+      }
+    }
+  }
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Migration Configuration Modal -->
+<div class="modal fade" id="migrationConfigModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Advanced Migration Configuration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="migrationConfigForm">
+                    <div class="mb-3">
+                        <label class="form-label">Migration Strategy</label>
+                        <select class="form-select" id="migrationStrategy" required>
+                            <option value="">Select Strategy</option>
+                            <option value="full">Full Migration</option>
+                            <option value="incremental">Incremental Migration</option>
+                            <option value="hybrid">Hybrid Migration</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Mapping Configuration</label>
+                        <select class="form-select" id="mappingConfiguration" required>
+                            <option value="">Select Configuration</option>
+                        </select>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Batch Size</label>
+                                <input type="number" class="form-control" id="modalBatchSize" value="5000" min="100" max="50000">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Parallel Workers</label>
+                                <input type="number" class="form-control" id="modalParallelWorkers" value="4" min="1" max="16">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="enableMonitoring" checked>
+                            <label class="form-check-label" for="enableMonitoring">
+                                Enable Real-time Monitoring
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="enableValidation" checked>
+                            <label class="form-check-label" for="enableValidation">
+                                Run Post-Migration Validation
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="executeAdvancedMigration()">
+                    Start Migration
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let migrationMetricsInterval;
+let currentJobId = null;
+
+function startMigration(strategy) {
+    // Show configuration modal
+    document.getElementById('migrationStrategy').value = strategy;
+    loadMappingConfigurations();
+    new bootstrap.Modal(document.getElementById('migrationConfigModal')).show();
+}
+
+function loadMappingConfigurations() {
+    fetch('/api/mapping/configurations')
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('mappingConfiguration');
+            select.innerHTML = '<option value="">Select Configuration</option>';
+            data.forEach(config => {
+                const option = document.createElement('option');
+                option.value = config.id;
+                option.textContent = config.name;
+                select.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading configurations:', error);
+            showAlert('Error loading mapping configurations', 'danger');
+        });
+}
+
+function executeAdvancedMigration() {
+    const form = document.getElementById('migrationConfigForm');
+    const formData = new FormData(form);
+    
+    const config = {
+        mapping_configuration_id: document.getElementById('mappingConfiguration').value,
+        migration_strategy: document.getElementById('migrationStrategy').value,
+        batch_size: parseInt(document.getElementById('modalBatchSize').value),
+        parallel_workers: parseInt(document.getElementById('modalParallelWorkers').value),
+        enable_monitoring: document.getElementById('enableMonitoring').checked,
+        enable_validation: document.getElementById('enableValidation').checked
+    };
+    
+    if (!config.mapping_configuration_id || !config.migration_strategy) {
+        showAlert('Please select mapping configuration and migration strategy', 'warning');
+        return;
+    }
+    
+    // Close modal
+    bootstrap.Modal.getInstance(document.getElementById('migrationConfigModal')).hide();
+    
+    // Start migration
+    fetch('/api/migration/jobs/advanced', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(config)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.job_id) {
+            currentJobId = data.job_id;
+            showAlert('Advanced migration started successfully', 'success');
+            startMetricsMonitoring();
+        } else {
+            showAlert(data.error || 'Failed to start migration', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error starting migration:', error);
+        showAlert('Error starting migration', 'danger');
+    });
+}
+
+function startMetricsMonitoring() {
+    if (migrationMetricsInterval) {
+        clearInterval(migrationMetricsInterval);
+    }
+    
+    migrationMetricsInterval = setInterval(refreshMetrics, 2000); // Update every 2 seconds
+    refreshMetrics(); // Initial load
+}
+
+function refreshMetrics() {
+    if (!currentJobId) return;
+    
+    fetch(`/api/migration/jobs/${currentJobId}/metrics`)
+        .then(response => response.json())
+        .then(data => {
+            updateMetricsDisplay(data);
+        })
+        .catch(error => {
+            console.error('Error fetching metrics:', error);
+        });
+}
+
+function updateMetricsDisplay(metrics) {
+    // Update metric cards
+    document.getElementById('totalRecords').textContent = metrics.total_records.toLocaleString();
+    document.getElementById('processedRecords').textContent = metrics.processed_records.toLocaleString();
+    document.getElementById('failedRecords').textContent = metrics.failed_records.toLocaleString();
+    document.getElementById('recordsPerSecond').textContent = Math.round(metrics.records_per_second).toLocaleString();
+    
+    // Update progress bar
+    const progressPercentage = metrics.progress_percentage || 0;
+    document.getElementById('progressPercentage').textContent = `${progressPercentage.toFixed(1)}%`;
+    document.getElementById('progressBar').style.width = `${progressPercentage}%`;
+    document.getElementById('progressText').textContent = `${progressPercentage.toFixed(1)}% Complete`;
+    
+    // Update timing information
+    document.getElementById('elapsedTime').textContent = metrics.elapsed_time || '00:00:00';
+    document.getElementById('estimatedCompletion').textContent = metrics.estimated_completion || 'Calculating...';
+    document.getElementById('currentBatch').textContent = `${metrics.current_batch || 0} / ${metrics.total_batches || 0}`;
+    
+    // Update progress bar color based on status
+    const progressBar = document.getElementById('progressBar');
+    progressBar.className = 'progress-bar progress-bar-striped';
+    
+    if (progressPercentage >= 100) {
+        progressBar.classList.add('bg-success');
+        document.getElementById('progressText').textContent = 'Migration Complete!';
+        clearInterval(migrationMetricsInterval);
+    } else if (metrics.failed_records > 0) {
+        progressBar.classList.add('bg-warning');
+    } else {
+        progressBar.classList.add('bg-primary');
+    }
+}
+
+function runValidation() {
+    if (!currentJobId) {
+        showAlert('No active migration job found', 'warning');
+        return;
+    }
+    
+    fetch(`/api/migration/jobs/${currentJobId}/validate`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        displayValidationResults(data);
+    })
+    .catch(error => {
+        console.error('Error running validation:', error);
+        showAlert('Error running validation', 'danger');
+    });
+}
+
+function displayValidationResults(results) {
+    document.getElementById('validationPlaceholder').classList.add('d-none');
+    document.getElementById('validationResults').classList.remove('d-none');
+    
+    // Update overall score
+    document.getElementById('overallScore').textContent = `${Math.round(results.overall_score)}%`;
+    
+    // Update individual scores
+    document.getElementById('recordCountScore').textContent = `${Math.round(results.record_count_validation.score)}%`;
+    document.getElementById('dataAccuracyScore').textContent = `${Math.round(results.sample_data_validation.score)}%`;
+    document.getElementById('typeValidationScore').textContent = `${Math.round(results.data_type_validation.score)}%`;
+    document.getElementById('indexHealthScore').textContent = `${Math.round(results.index_health.score)}%`;
+    
+    // Update detailed information
+    const recordCountValidation = results.record_count_validation;
+    document.getElementById('oracleCount').textContent = recordCountValidation.oracle_count?.toLocaleString() || '0';
+    document.getElementById('esCount').textContent = recordCountValidation.elasticsearch_count?.toLocaleString() || '0';
+    document.getElementById('countDifference').textContent = Math.abs(recordCountValidation.difference || 0).toLocaleString();
+    
+    const sampleValidation = results.sample_data_validation;
+    document.getElementById('matchingRecords').textContent = sampleValidation.matching_records?.toLocaleString() || '0';
+    document.getElementById('mismatchedRecords').textContent = (sampleValidation.total_checked - sampleValidation.matching_records)?.toLocaleString() || '0';
+    document.getElementById('matchRate').textContent = `${Math.round(sampleValidation.match_percentage || 0)}%`;
+}
+
+function reprocessFailedRecords() {
+    fetch('/api/migration/reprocess-failed', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        showAlert(data.message, 'info');
+    })
+    .catch(error => {
+        console.error('Error reprocessing failed records:', error);
+        showAlert('Error reprocessing failed records', 'danger');
+    });
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Insert at the top of the container
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    // Load initial data
+    loadMappingConfigurations();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,971 @@
+{% extends "base.html" %}
+
+{% block title %}Advanced Field Mapping - Oracle to Elasticsearch{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Mapping Strategy Selection -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-sitemap me-2"></i>
+                        Advanced Field Mapping Strategies
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="card h-100 border-primary mapping-strategy-card" data-strategy="direct">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-arrow-right fa-2x text-primary mb-3"></i>
+                                    <h6>Direct Mapping</h6>
+                                    <p class="text-muted small">One-to-one field mapping for simple structures</p>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="mappingStrategy" id="directMapping" value="direct" checked>
+                                        <label class="form-check-label" for="directMapping">Select</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card h-100 border-info mapping-strategy-card" data-strategy="nested">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-layer-group fa-2x text-info mb-3"></i>
+                                    <h6>Nested Objects</h6>
+                                    <p class="text-muted small">Embed related data as nested objects</p>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="mappingStrategy" id="nestedMapping" value="nested">
+                                        <label class="form-check-layer" for="nestedMapping">Select</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card h-100 border-success mapping-strategy-card" data-strategy="parent_child">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-project-diagram fa-2x text-success mb-3"></i>
+                                    <h6>Parent-Child</h6>
+                                    <p class="text-muted small">Separate documents with join relationships</p>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="mappingStrategy" id="parentChildMapping" value="parent_child">
+                                        <label class="form-check-label" for="parentChildMapping">Select</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card h-100 border-warning mapping-strategy-card" data-strategy="hybrid">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-puzzle-piece fa-2x text-warning mb-3"></i>
+                                    <h6>Hybrid Approach</h6>
+                                    <p class="text-muted small">Combine multiple mapping strategies</p>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="mappingStrategy" id="hybridMapping" value="hybrid">
+                                        <label class="form-check-label" for="hybridMapping">Select</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Schema Analysis and Auto-Suggestions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-brain me-2"></i>
+                        Intelligent Mapping Analysis
+                    </h6>
+                    <button class="btn btn-primary btn-sm" onclick="analyzeSchema()">
+                        <i class="fas fa-magic me-1"></i>
+                        Analyze & Suggest
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Oracle Connection</label>
+                                <select class="form-select" id="oracleConnection">
+                                    <option value="">Select Oracle Connection</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Oracle Query</label>
+                                <textarea class="form-control" id="oracleQuery" rows="6" placeholder="SELECT o.order_id, o.order_date, c.customer_name, oi.product_id, oi.quantity FROM orders o JOIN customers c ON o.customer_id = c.id JOIN order_items oi ON o.order_id = oi.order_id"></textarea>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div id="analysisResults" class="d-none">
+                                <h6>Analysis Results</h6>
+                                <div id="relationshipAnalysis" class="mb-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Detected Relationships</h6>
+                                            <div id="detectedRelationships"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="mappingSuggestions">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Mapping Suggestions</h6>
+                                            <div id="suggestedMappings"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="analysisPlaceholder" class="text-center text-muted py-5">
+                                <i class="fas fa-search fa-3x mb-3"></i>
+                                <p>Enter Oracle connection and query to get intelligent mapping suggestions</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Direct Field Mapping Editor -->
+    <div id="directMappingEditor" class="mapping-editor">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-exchange-alt me-2"></i>
+                            Direct Field Mappings
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-5">
+                                <h6>Oracle Fields</h6>
+                                <div id="oracleFieldsList" class="field-list"></div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mapping-connections text-center">
+                                    <i class="fas fa-arrows-alt-h fa-2x text-muted"></i>
+                                    <p class="mt-2">Drag to map</p>
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <h6>Elasticsearch Fields</h6>
+                                <div id="esFieldsList" class="field-list"></div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-success" onclick="addCustomField()">
+                                <i class="fas fa-plus me-1"></i>
+                                Add Custom Field
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nested Objects Editor -->
+    <div id="nestedMappingEditor" class="mapping-editor d-none">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="fas fa-layer-group me-2"></i>
+                            Nested Object Configuration
+                        </h6>
+                        <button class="btn btn-primary btn-sm" onclick="addNestedObject()">
+                            <i class="fas fa-plus me-1"></i>
+                            Add Nested Object
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="nestedObjectsContainer">
+                            <!-- Nested objects will be dynamically added here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Parent-Child Editor -->
+    <div id="parentChildMappingEditor" class="mapping-editor d-none">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="fas fa-project-diagram me-2"></i>
+                            Parent-Child Relationship Configuration
+                        </h6>
+                        <button class="btn btn-success btn-sm" onclick="addParentChildRelation()">
+                            <i class="fas fa-plus me-1"></i>
+                            Add Relation
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="parentChildContainer">
+                            <!-- Parent-child configurations will be dynamically added here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transformation Rules Editor -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-cogs me-2"></i>
+                        Field Transformation Rules
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div id="transformationRulesContainer">
+                        <!-- Transformation rules will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mapping Preview -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-eye me-2"></i>
+                        Elasticsearch Mapping Preview
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <pre id="esMappingPreview" class="bg-dark text-light p-3 rounded"><code>{
+  "mappings": {
+    "properties": {
+      // Mapping will be generated here
+    }
+  }
+}</code></pre>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-file-code me-2"></i>
+                        Sample Document Preview
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <pre id="sampleDocPreview" class="bg-primary text-light p-3 rounded"><code>{
+  // Sample document will be generated here
+}</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center">
+                    <button class="btn btn-success btn-lg me-2" onclick="saveMappingConfiguration()">
+                        <i class="fas fa-save me-2"></i>
+                        Save Mapping Configuration
+                    </button>
+                    <button class="btn btn-primary btn-lg me-2" onclick="testMapping()">
+                        <i class="fas fa-play me-2"></i>
+                        Test Mapping
+                    </button>
+                    <button class="btn btn-info btn-lg" onclick="generateMigrationScript()">
+                        <i class="fas fa-code me-2"></i>
+                        Generate Migration Script
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Nested Object Configuration Modal -->
+<div class="modal fade" id="nestedObjectModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Configure Nested Object</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="nestedObjectForm">
+                    <div class="mb-3">
+                        <label class="form-label">Nested Object Name</label>
+                        <input type="text" class="form-control" id="nestedObjectName" placeholder="e.g., order_items">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nested Path</label>
+                        <input type="text" class="form-control" id="nestedPath" placeholder="e.g., items">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Parent Table</label>
+                        <select class="form-select" id="parentTable">
+                            <option value="">Select Parent Table</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Child Table</label>
+                        <select class="form-select" id="childTable">
+                            <option value="">Select Child Table</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="includeInParent">
+                                <label class="form-check-label" for="includeInParent">
+                                    Include in Parent
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="dynamicMapping" checked>
+                                <label class="form-check-label" for="dynamicMapping">
+                                    Dynamic Mapping
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveNestedObject()">Save Nested Object</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Parent-Child Configuration Modal -->
+<div class="modal fade" id="parentChildModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Configure Parent-Child Relationship</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="parentChildForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Parent Configuration</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Parent Type Name</label>
+                                <input type="text" class="form-control" id="parentTypeName" placeholder="e.g., order">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Parent Table</label>
+                                <select class="form-select" id="parentTableSelect">
+                                    <option value="">Select Parent Table</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Child Configuration</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Child Type Name</label>
+                                <input type="text" class="form-control" id="childTypeName" placeholder="e.g., order_item">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Child Table</label>
+                                <select class="form-select" id="childTableSelect">
+                                    <option value="">Select Child Table</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Join Field Name</label>
+                                <input type="text" class="form-control" id="joinFieldName" value="document_relationship">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Relationship Key Field</label>
+                                <input type="text" class="form-control" id="relationshipKey" placeholder="e.g., order_id">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="saveParentChildRelation()">Save Relationship</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Field Transformation Modal -->
+<div class="modal fade" id="transformationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Configure Field Transformation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="transformationForm">
+                    <div class="mb-3">
+                        <label class="form-label">Transformation Type</label>
+                        <select class="form-select" id="transformationType" onchange="updateTransformationOptions()">
+                            <option value="">Select Transformation</option>
+                            <option value="date_format">Date Format Conversion</option>
+                            <option value="string_manipulation">String Manipulation</option>
+                            <option value="numeric_scaling">Numeric Scaling</option>
+                            <option value="conditional">Conditional Transformation</option>
+                            <option value="custom">Custom Function</option>
+                        </select>
+                    </div>
+                    <div id="transformationOptions">
+                        <!-- Dynamic transformation options will be loaded here -->
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveTransformation()">Save Transformation</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentMappingStrategy = 'direct';
+let fieldMappings = [];
+let nestedMappings = [];
+let parentChildMappings = [];
+let transformationRules = [];
+
+// Initialize the page
+document.addEventListener('DOMContentLoaded', function() {
+    loadOracleConnections();
+    setupMappingStrategyHandlers();
+    setupDragAndDrop();
+});
+
+function loadOracleConnections() {
+    fetch('/api/oracle/connections')
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('oracleConnection');
+            select.innerHTML = '<option value="">Select Oracle Connection</option>';
+            data.forEach(conn => {
+                const option = document.createElement('option');
+                option.value = conn.id;
+                option.textContent = conn.name;
+                select.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading Oracle connections:', error);
+        });
+}
+
+function setupMappingStrategyHandlers() {
+    document.querySelectorAll('input[name="mappingStrategy"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            currentMappingStrategy = this.value;
+            showMappingEditor(this.value);
+        });
+    });
+}
+
+function showMappingEditor(strategy) {
+    // Hide all editors
+    document.querySelectorAll('.mapping-editor').forEach(editor => {
+        editor.classList.add('d-none');
+    });
+    
+    // Show selected editor
+    const editorId = strategy + 'MappingEditor';
+    const editor = document.getElementById(editorId);
+    if (editor) {
+        editor.classList.remove('d-none');
+    }
+    
+    // Update strategy card highlighting
+    document.querySelectorAll('.mapping-strategy-card').forEach(card => {
+        card.classList.remove('border-primary', 'border-info', 'border-success', 'border-warning');
+        card.classList.add('border-secondary');
+    });
+    
+    const selectedCard = document.querySelector(`[data-strategy="${strategy}"]`);
+    if (selectedCard) {
+        selectedCard.classList.remove('border-secondary');
+        if (strategy === 'direct') selectedCard.classList.add('border-primary');
+        if (strategy === 'nested') selectedCard.classList.add('border-info');
+        if (strategy === 'parent_child') selectedCard.classList.add('border-success');
+        if (strategy === 'hybrid') selectedCard.classList.add('border-warning');
+    }
+}
+
+function analyzeSchema() {
+    const oracleConnectionId = document.getElementById('oracleConnection').value;
+    const oracleQuery = document.getElementById('oracleQuery').value;
+    
+    if (!oracleConnectionId || !oracleQuery) {
+        showAlert('Please select Oracle connection and enter query', 'warning');
+        return;
+    }
+    
+    const analysisData = {
+        oracle_connection_id: oracleConnectionId,
+        oracle_query: oracleQuery
+    };
+    
+    fetch('/api/mapping/analyze-schema', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(analysisData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        displayAnalysisResults(data);
+    })
+    .catch(error => {
+        console.error('Error analyzing schema:', error);
+        showAlert('Error analyzing schema', 'danger');
+    });
+}
+
+function displayAnalysisResults(analysis) {
+    document.getElementById('analysisPlaceholder').classList.add('d-none');
+    document.getElementById('analysisResults').classList.remove('d-none');
+    
+    // Display detected relationships
+    const relationshipsContainer = document.getElementById('detectedRelationships');
+    relationshipsContainer.innerHTML = '';
+    
+    const relationships = analysis.relationships;
+    
+    // One-to-many relationships
+    if (relationships.one_to_many && relationships.one_to_many.length > 0) {
+        relationships.one_to_many.forEach(rel => {
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-info me-2 mb-2';
+            badge.textContent = `${rel.parent_table} → ${rel.child_table} (${rel.suggested_mapping})`;
+            relationshipsContainer.appendChild(badge);
+        });
+    }
+    
+    // Nested candidates
+    if (relationships.nested_candidates && relationships.nested_candidates.length > 0) {
+        relationships.nested_candidates.forEach(nested => {
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-success me-2 mb-2';
+            badge.textContent = `${nested.parent_table} ⊃ ${nested.nested_table}`;
+            relationshipsContainer.appendChild(badge);
+        });
+    }
+    
+    // Parent-child candidates
+    if (relationships.parent_child_candidates && relationships.parent_child_candidates.length > 0) {
+        relationships.parent_child_candidates.forEach(pc => {
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-warning me-2 mb-2';
+            badge.textContent = `${pc.table} (hierarchical)`;
+            relationshipsContainer.appendChild(badge);
+        });
+    }
+    
+    // Display mapping suggestions
+    const suggestionsContainer = document.getElementById('suggestedMappings');
+    suggestionsContainer.innerHTML = '';
+    
+    analysis.mapping_suggestions.forEach(suggestion => {
+        const suggestionDiv = document.createElement('div');
+        suggestionDiv.className = 'mb-2';
+        
+        if (suggestion.mapping_type === 'direct') {
+            suggestionDiv.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>${suggestion.oracle_field} → ${suggestion.suggested_es_field}</span>
+                    <span class="badge bg-primary">${suggestion.confidence}%</span>
+                </div>
+                <small class="text-muted">${suggestion.oracle_type} → ${suggestion.suggested_es_type}</small>
+            `;
+        } else if (suggestion.mapping_type === 'nested') {
+            suggestionDiv.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <span><strong>Nested:</strong> ${suggestion.nested_path}</span>
+                    <span class="badge bg-info">${suggestion.confidence}%</span>
+                </div>
+                <small class="text-muted">${suggestion.nested_fields.length} fields</small>
+            `;
+        }
+        
+        suggestionsContainer.appendChild(suggestionDiv);
+    });
+    
+    // Auto-apply high-confidence suggestions
+    applyHighConfidenceSuggestions(analysis.mapping_suggestions);
+}
+
+function applyHighConfidenceSuggestions(suggestions) {
+    // Apply direct mappings with confidence > 90%
+    const highConfidenceDirect = suggestions.filter(s => 
+        s.mapping_type === 'direct' && s.confidence > 90
+    );
+    
+    // Apply nested suggestions with confidence > 85%
+    const highConfidenceNested = suggestions.filter(s => 
+        s.mapping_type === 'nested' && s.confidence > 85
+    );
+    
+    // Update the UI with suggestions
+    if (highConfidenceDirect.length > 0 || highConfidenceNested.length > 0) {
+        // Recommend hybrid approach if we have both types
+        if (highConfidenceNested.length > 0) {
+            document.getElementById('hybridMapping').checked = true;
+            showMappingEditor('hybrid');
+        }
+        
+        showAlert(`Applied ${highConfidenceDirect.length + highConfidenceNested.length} high-confidence mapping suggestions`, 'success');
+    }
+}
+
+function setupDragAndDrop() {
+    // This would implement drag-and-drop functionality for field mapping
+    // For now, we'll use click-to-map
+}
+
+function addNestedObject() {
+    new bootstrap.Modal(document.getElementById('nestedObjectModal')).show();
+}
+
+function saveNestedObject() {
+    const name = document.getElementById('nestedObjectName').value;
+    const path = document.getElementById('nestedPath').value;
+    const parentTable = document.getElementById('parentTable').value;
+    const childTable = document.getElementById('childTable').value;
+    
+    if (!name || !path || !parentTable || !childTable) {
+        showAlert('Please fill in all required fields', 'warning');
+        return;
+    }
+    
+    const nestedConfig = {
+        name: name,
+        path: path,
+        parent_table: parentTable,
+        child_table: childTable,
+        include_in_parent: document.getElementById('includeInParent').checked,
+        dynamic: document.getElementById('dynamicMapping').checked,
+        fields: [] // Will be populated with field mappings
+    };
+    
+    // Add to nested mappings
+    nestedMappings.push(nestedConfig);
+    
+    // Update UI
+    renderNestedObjects();
+    updateMappingPreview();
+    
+    // Close modal
+    bootstrap.Modal.getInstance(document.getElementById('nestedObjectModal')).hide();
+    
+    showAlert('Nested object configuration added', 'success');
+}
+
+function addParentChildRelation() {
+    new bootstrap.Modal(document.getElementById('parentChildModal')).show();
+}
+
+function saveParentChildRelation() {
+    const parentType = document.getElementById('parentTypeName').value;
+    const childType = document.getElementById('childTypeName').value;
+    const joinField = document.getElementById('joinFieldName').value;
+    const relationshipKey = document.getElementById('relationshipKey').value;
+    
+    if (!parentType || !childType || !joinField || !relationshipKey) {
+        showAlert('Please fill in all required fields', 'warning');
+        return;
+    }
+    
+    const pcConfig = {
+        parent_type: parentType,
+        child_type: childType,
+        join_field: joinField,
+        relationship_key: relationshipKey,
+        parent_table: document.getElementById('parentTableSelect').value,
+        child_table: document.getElementById('childTableSelect').value,
+        parent_fields: [],
+        child_fields: []
+    };
+    
+    // Add to parent-child mappings
+    parentChildMappings.push(pcConfig);
+    
+    // Update UI
+    renderParentChildRelations();
+    updateMappingPreview();
+    
+    // Close modal
+    bootstrap.Modal.getInstance(document.getElementById('parentChildModal')).hide();
+    
+    showAlert('Parent-child relationship configured', 'success');
+}
+
+function renderNestedObjects() {
+    const container = document.getElementById('nestedObjectsContainer');
+    container.innerHTML = '';
+    
+    nestedMappings.forEach((nested, index) => {
+        const nestedDiv = document.createElement('div');
+        nestedDiv.className = 'card mb-3 border-info';
+        nestedDiv.innerHTML = `
+            <div class="card-header bg-info text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-layer-group me-2"></i>
+                        ${nested.name} (${nested.path})
+                    </h6>
+                    <button class="btn btn-sm btn-outline-light" onclick="removeNestedObject(${index})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>Parent Table:</strong> ${nested.parent_table}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Child Table:</strong> ${nested.child_table}
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <span class="badge bg-secondary">Fields: ${nested.fields.length}</span>
+                    ${nested.include_in_parent ? '<span class="badge bg-success">Include in Parent</span>' : ''}
+                    ${nested.dynamic ? '<span class="badge bg-info">Dynamic</span>' : ''}
+                </div>
+            </div>
+        `;
+        container.appendChild(nestedDiv);
+    });
+}
+
+function renderParentChildRelations() {
+    const container = document.getElementById('parentChildContainer');
+    container.innerHTML = '';
+    
+    parentChildMappings.forEach((pc, index) => {
+        const pcDiv = document.createElement('div');
+        pcDiv.className = 'card mb-3 border-success';
+        pcDiv.innerHTML = `
+            <div class="card-header bg-success text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-project-diagram me-2"></i>
+                        ${pc.parent_type} ↔ ${pc.child_type}
+                    </h6>
+                    <button class="btn btn-sm btn-outline-light" onclick="removeParentChildRelation(${index})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <strong>Join Field:</strong> ${pc.join_field}
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Relationship Key:</strong> ${pc.relationship_key}
+                    </div>
+                    <div class="col-md-4">
+                        <span class="badge bg-primary">Parent Fields: ${pc.parent_fields.length}</span>
+                        <span class="badge bg-secondary">Child Fields: ${pc.child_fields.length}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.appendChild(pcDiv);
+    });
+}
+
+function updateMappingPreview() {
+    // Generate Elasticsearch mapping preview
+    const mapping = {
+        mappings: {
+            properties: {}
+        }
+    };
+    
+    // Add direct field mappings
+    fieldMappings.forEach(field => {
+        mapping.mappings.properties[field.es_field] = {
+            type: field.es_type
+        };
+    });
+    
+    // Add nested mappings
+    nestedMappings.forEach(nested => {
+        mapping.mappings.properties[nested.path] = {
+            type: "nested",
+            dynamic: nested.dynamic,
+            include_in_parent: nested.include_in_parent,
+            properties: {}
+        };
+        
+        // Add nested fields (would be populated from actual field mappings)
+        nested.fields.forEach(field => {
+            const fieldName = field.es_field.split('.').pop();
+            mapping.mappings.properties[nested.path].properties[fieldName] = {
+                type: field.es_type
+            };
+        });
+    });
+    
+    // Add parent-child mappings
+    parentChildMappings.forEach(pc => {
+        mapping.mappings.properties[pc.join_field] = {
+            type: "join",
+            relations: {
+                [pc.parent_type]: pc.child_type
+            }
+        };
+    });
+    
+    // Update preview
+    document.getElementById('esMappingPreview').innerHTML = 
+        `<code>${JSON.stringify(mapping, null, 2)}</code>`;
+}
+
+function updateTransformationOptions() {
+    const transformationType = document.getElementById('transformationType').value;
+    const optionsContainer = document.getElementById('transformationOptions');
+    
+    optionsContainer.innerHTML = '';
+    
+    if (transformationType === 'date_format') {
+        optionsContainer.innerHTML = `
+            <div class="mb-3">
+                <label class="form-label">From Format</label>
+                <input type="text" class="form-control" id="fromFormat" value="YYYY-MM-DD HH24:MI:SS" placeholder="Oracle date format">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">To Format</label>
+                <select class="form-select" id="toFormat">
+                    <option value="iso8601">ISO 8601 (default)</option>
+                    <option value="epoch_millis">Epoch milliseconds</option>
+                    <option value="custom">Custom format</option>
+                </select>
+            </div>
+        `;
+    } else if (transformationType === 'string_manipulation') {
+        optionsContainer.innerHTML = `
+            <div class="mb-3">
+                <label class="form-label">Operations</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="trimWhitespace" checked>
+                    <label class="form-check-label" for="trimWhitespace">Trim whitespace</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="uppercase">
+                    <label class="form-check-label" for="uppercase">Convert to uppercase</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="lowercase">
+                    <label class="form-check-label" for="lowercase">Convert to lowercase</label>
+                </div>
+            </div>
+        `;
+    } else if (transformationType === 'numeric_scaling') {
+        optionsContainer.innerHTML = `
+            <div class="mb-3">
+                <label class="form-label">Scale Factor</label>
+                <input type="number" class="form-control" id="scaleFactor" value="100" placeholder="Scaling factor for decimal precision">
+            </div>
+        `;
+    }
+}
+
+function saveMappingConfiguration() {
+    const configData = {
+        name: 'Advanced Field Mapping Configuration',
+        mapping_strategy: currentMappingStrategy,
+        field_mappings: fieldMappings,
+        nested_mappings: nestedMappings,
+        parent_child_mappings: parentChildMappings,
+        transformation_rules: transformationRules
+    };
+    
+    fetch('/api/mapping/configurations/advanced', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(configData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.id) {
+            showAlert('Advanced mapping configuration saved successfully', 'success');
+        } else {
+            showAlert(data.error || 'Failed to save configuration', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error saving configuration:', error);
+        showAlert('Error saving configuration', 'danger');
+    });
+}
+
+function testMapping() {
+    showAlert('Testing mapping configuration...', 'info');
+    // This would implement mapping testing functionality
+}
+
+function generateMigrationScript() {
+    showAlert('Generating migration script...', 'info');
+    // This would implement migration script generation
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.querySelector('.container-fluid').insertBefore(alertDiv, document.querySelector('.container-fluid').firstChild);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

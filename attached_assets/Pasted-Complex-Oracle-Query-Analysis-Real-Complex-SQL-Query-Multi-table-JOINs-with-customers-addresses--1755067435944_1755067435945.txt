@@ -1,0 +1,57 @@
+Complex Oracle Query Analysis
+
+Real Complex SQL Query: Multi-table JOINs with customers, addresses, orders, order_items, products, and categories
+Query Structure Detection: Shows complexity score, estimated rows, tables involved, and JOIN types
+Advanced SQL Features: CASE statements, date functions, concatenation, and aggregate expressions
+
+2. Detailed Field Mapping Table
+
+Oracle Column Analysis: Shows all extracted fields with their Oracle data types
+Type Mapping: Automatic Oracle → Elasticsearch type conversion
+Confidence Scoring: AI-powered mapping confidence percentages
+Suggested ES Fields: Intelligent field name suggestions with nested grouping
+Transformation Rules: Specific transformation requirements for each field
+
+3. Nested Object Mapping Examples
+
+Complex Nested Structure: Customer with nested name, contact, and address objects
+Multi-level Nesting: Orders array with nested items and product details
+Field Configuration: Proper analyzers, keyword fields, and data types
+Real-world Example: Practical e-commerce data structure
+
+4. Parent-Child Relationship Mapping
+
+Hierarchical Structure: Customer → Order → Order Item relationships
+Join Field Configuration: Proper parent-child setup with routing
+Multiple Generations: Support for grandparent-parent-child relationships
+Document Examples: Actual JSON documents with proper _routing and join_field
+
+5. Transformation Rules & Examples
+
+Date Transformations: Oracle DATE → ISO 8601 format
+Numeric Precision: NUMBER(10,2) → Elasticsearch double
+String Processing: Trimming, validation, and formatting
+Custom Rules: Business logic transformations
+
+6. Complete JSON Examples
+
+Raw Oracle Data: Shows actual database result set format
+Transformed Document: Full nested Elasticsearch document
+Enhanced Fields: Additional computed fields, analytics, and metrics
+Real-world Complexity: Practical e-commerce scenario with all relationships
+
+7. Intelligent Validation System
+
+Success Indicators: High-confidence mappings with checkmarks
+Warning Alerts: Potential issues that need attention
+Smart Suggestions: AI-powered recommendations for optimization
+Best Practices: Industry-standard mapping recommendations
+
+🎨 Interactive Features
+
+Syntax Highlighting: Color-coded JSON and SQL
+Confidence Badges: Visual indicators for mapping quality
+Expandable Code Blocks: Full, readable formatting
+Real Data Examples: Practical, meaningful sample data
+
+This enhanced demo now shows the full power of your migration tool, demonstrating how it can handle complex Oracle queries and transform them into sophisticated Elasticsearch mappings with nested objects, parent-child relationships, and intelligent field transformations.

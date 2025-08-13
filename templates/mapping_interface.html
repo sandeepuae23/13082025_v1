@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+
+{% block title %}Field Mapping Interface - Oracle to Elasticsearch Migration{% endblock %}
+
+{% block additional_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-project-diagram me-2"></i>
+            Field Mapping Interface
+        </h1>
+    </div>
+</div>
+
+<!-- Configuration Selection -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-cog me-2"></i>
+                    Mapping Configuration
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label for="oracleConnectionSelect" class="form-label">Oracle Connection</label>
+                        <select class="form-select" id="oracleConnectionSelect" onchange="loadOracleQuery()">
+                            <option value="">Select Oracle connection...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="esConnectionSelect" class="form-label">Elasticsearch Connection</label>
+                        <select class="form-select" id="esConnectionSelect" onchange="loadESIndices()">
+                            <option value="">Select ES connection...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="esIndexSelect" class="form-label">Elasticsearch Index</label>
+                        <select class="form-select" id="esIndexSelect" onchange="loadESFields()">
+                            <option value="">Select ES index...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="existingMappingSelect" class="form-label">Load Existing Mapping</label>
+                        <select class="form-select" id="existingMappingSelect" onchange="loadExistingMapping()">
+                            <option value="">Create new mapping...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Oracle Query Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-database me-2"></i>
+                    Oracle Query Configuration
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="oracleQuery" class="form-label">SQL Query</label>
+                    <textarea class="form-control" id="oracleQuery" rows="6" 
+                        placeholder="Enter your Oracle SQL query here..."></textarea>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" onclick="analyzeOracleQuery()">
+                        <i class="fas fa-search me-1"></i>Analyze Query
+                    </button>
+                    <button class="btn btn-success" onclick="generateAutoMapping()">
+                        <i class="fas fa-magic me-1"></i>Auto-Generate Mapping
+                    </button>
+                    <button class="btn btn-warning" onclick="previewMigration()">
+                        <i class="fas fa-eye me-1"></i>Preview Data
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Mapping Interface -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-arrows-alt-h me-2"></i>
+                    Field Mapping
+                </h5>
+                <div>
+                    <button class="btn btn-outline-primary btn-sm" onclick="validateMappings()">
+                        <i class="fas fa-check me-1"></i>Validate
+                    </button>
+                    <button class="btn btn-outline-success btn-sm" onclick="saveMappingConfiguration()">
+                        <i class="fas fa-save me-1"></i>Save Mapping
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Oracle Fields -->
+                    <div class="col-md-5">
+                        <div class="mapping-panel">
+                            <h6 class="mb-3">
+                                <i class="fas fa-database me-2"></i>
+                                Oracle Fields
+                            </h6>
+                            <div id="oracle-fields" class="field-list">
+                                <div class="text-muted text-center p-4">
+                                    Analyze a query to see Oracle fields
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Mapping Connections -->
+                    <div class="col-md-2">
+                        <div class="mapping-connections" id="mapping-connections">
+                            <div class="text-muted text-center p-4">
+                                <i class="fas fa-arrow-right fa-2x"></i>
+                                <br><small>Drag to map fields</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Elasticsearch Fields -->
+                    <div class="col-md-5">
+                        <div class="mapping-panel">
+                            <h6 class="mb-3">
+                                <i class="fas fa-search me-2"></i>
+                                Elasticsearch Fields
+                            </h6>
+                            <div id="es-fields" class="field-list">
+                                <div class="text-muted text-center p-4">
+                                    Select an index to see ES fields
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Active Mappings -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Active Field Mappings
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="active-mappings">
+                    <div class="text-muted text-center p-4">
+                        No field mappings configured yet
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transformation Rules -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-cogs me-2"></i>
+                    Transformation Rules
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="transformation-rules">
+                    <div class="text-muted text-center p-4">
+                        Transformation rules will appear here based on field mappings
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Save Mapping Modal -->
+<div class="modal fade" id="saveMappingModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Save Mapping Configuration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="saveMappingForm">
+                    <div class="mb-3">
+                        <label for="mappingName" class="form-label">Mapping Name</label>
+                        <input type="text" class="form-control" id="mappingName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="mappingDescription" class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" id="mappingDescription" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="confirmSaveMapping()">
+                    <i class="fas fa-save me-1"></i>Save Mapping
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Migration Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="preview-content">
+                    <div class="text-center">
+                        <i class="fas fa-spinner fa-spin me-2"></i>
+                        Loading preview...
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="proceedToMigration()">
+                    <i class="fas fa-arrow-right me-1"></i>Proceed to Migration
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block additional_js %}
+<script src="{{ url_for('static', filename='js/mapping.js') }}"></script>
+<script>
+// Initialize mapping interface on page load
+document.addEventListener('DOMContentLoaded', function() {
+    initializeMappingInterface();
+});
+</script>
+{% endblock %}

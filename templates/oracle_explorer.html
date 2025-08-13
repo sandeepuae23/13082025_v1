@@ -1,0 +1,542 @@
+{% extends "base.html" %}
+
+{% block title %}Oracle Explorer - Oracle to Elasticsearch Migration{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-database me-2"></i>
+            Oracle Database Explorer
+        </h1>
+    </div>
+</div>
+
+<!-- Connection Management -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-plug me-2"></i>
+                    Oracle Connections
+                </h5>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addConnectionModal">
+                    <i class="fas fa-plus me-1"></i>Add Connection
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="connections-list">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-spinner fa-spin me-2"></i>
+                        Loading connections...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Schema Explorer -->
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-sitemap me-2"></i>
+                    Database Schema
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <select class="form-select" id="connectionSelect" onchange="loadTables()">
+                        <option value="">Select a connection...</option>
+                    </select>
+                </div>
+                <div id="tables-list">
+                    <p class="text-muted mb-0">Select a connection to view tables</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-columns me-2"></i>
+                    Table Details
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="table-details">
+                    <p class="text-muted mb-0">Select a table to view its columns and structure</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Query Builder -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-code me-2"></i>
+                    SQL Query Builder & Analyzer
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="sqlQuery" class="form-label">SQL Query</label>
+                            <textarea class="form-control" id="sqlQuery" rows="8" 
+                                placeholder="Enter your SQL query here..."></textarea>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-primary" onclick="analyzeQuery()">
+                                <i class="fas fa-search me-1"></i>Analyze Query
+                            </button>
+                            <button class="btn btn-success" onclick="executeQuery()">
+                                <i class="fas fa-play me-1"></i>Execute Sample
+                            </button>
+                            <button class="btn btn-secondary" onclick="clearQuery()">
+                                <i class="fas fa-eraser me-1"></i>Clear
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Query Analysis Results</label>
+                            <div id="query-analysis" class="border rounded p-3" style="min-height: 200px;">
+                                <p class="text-muted mb-0">Enter and analyze a query to see column information</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Connection Modal -->
+<div class="modal fade" id="addConnectionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Oracle Connection</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="connectionForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="connectionName" class="form-label">Connection Name</label>
+                                <input type="text" class="form-control" id="connectionName" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="host" class="form-label">Host</label>
+                                <input type="text" class="form-control" id="host" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="port" class="form-label">Port</label>
+                                <input type="number" class="form-control" id="port" value="1521">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="serviceName" class="form-label">Service Name</label>
+                                <input type="text" class="form-control" id="serviceName" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="username" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Password</label>
+                                <input type="password" class="form-control" id="password" required>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" onclick="testConnection()">
+                    <i class="fas fa-plug me-1"></i>Test Connection
+                </button>
+                <button type="button" class="btn btn-primary" onclick="saveConnection()">
+                    <i class="fas fa-save me-1"></i>Save Connection
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block additional_js %}
+<script>
+let currentConnectionId = null;
+
+// Load data on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadConnections();
+});
+
+async function loadConnections() {
+    try {
+        const response = await axios.get('/api/oracle/connections');
+        const connections = response.data;
+        
+        const container = document.getElementById('connections-list');
+        const select = document.getElementById('connectionSelect');
+        
+        // Update connections list
+        if (connections.length === 0) {
+            container.innerHTML = '<p class="text-muted mb-0">No Oracle connections configured</p>';
+        } else {
+            let html = '<div class="list-group">';
+            connections.forEach(conn => {
+                html += `
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">${conn.name}</h6>
+                            <small class="text-muted">${conn.host}:${conn.port}/${conn.service_name}</small>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary me-2" 
+                                onclick="testExistingConnection(${conn.id})">
+                                <i class="fas fa-plug"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-success" 
+                                onclick="selectConnection(${conn.id})">
+                                <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+        
+        // Update connection selector
+        select.innerHTML = '<option value="">Select a connection...</option>';
+        connections.forEach(conn => {
+            select.innerHTML += `<option value="${conn.id}">${conn.name}</option>`;
+        });
+        
+    } catch (error) {
+        console.error('Error loading connections:', error);
+        document.getElementById('connections-list').innerHTML = 
+            '<p class="text-danger mb-0">Error loading connections</p>';
+    }
+}
+
+async function saveConnection() {
+    const formData = {
+        name: document.getElementById('connectionName').value,
+        host: document.getElementById('host').value,
+        port: parseInt(document.getElementById('port').value),
+        service_name: document.getElementById('serviceName').value,
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value
+    };
+    
+    try {
+        await axios.post('/api/oracle/connections', formData);
+        
+        // Close modal and reload connections
+        bootstrap.Modal.getInstance(document.getElementById('addConnectionModal')).hide();
+        document.getElementById('connectionForm').reset();
+        loadConnections();
+        
+        alert('Connection saved successfully!');
+    } catch (error) {
+        console.error('Error saving connection:', error);
+        alert('Error saving connection: ' + (error.response?.data?.error || 'Unknown error'));
+    }
+}
+
+async function testConnection() {
+    const formData = {
+        name: document.getElementById('connectionName').value,
+        host: document.getElementById('host').value,
+        port: parseInt(document.getElementById('port').value),
+        service_name: document.getElementById('serviceName').value,
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value
+    };
+    
+    try {
+        // Create temporary connection for testing
+        const createResponse = await axios.post('/api/oracle/connections', formData);
+        const connectionId = createResponse.data.id;
+        
+        const testResponse = await axios.post(`/api/oracle/connections/${connectionId}/test`);
+        
+        if (testResponse.data.success) {
+            alert('Connection test successful!');
+        } else {
+            alert('Connection test failed: ' + testResponse.data.message);
+        }
+    } catch (error) {
+        console.error('Error testing connection:', error);
+        alert('Connection test failed: ' + (error.response?.data?.error || 'Unknown error'));
+    }
+}
+
+async function testExistingConnection(connectionId) {
+    try {
+        const response = await axios.post(`/api/oracle/connections/${connectionId}/test`);
+        
+        if (response.data.success) {
+            alert('Connection test successful!');
+        } else {
+            alert('Connection test failed: ' + response.data.message);
+        }
+    } catch (error) {
+        console.error('Error testing connection:', error);
+        alert('Connection test failed: ' + (error.response?.data?.error || 'Unknown error'));
+    }
+}
+
+function selectConnection(connectionId) {
+    document.getElementById('connectionSelect').value = connectionId;
+    loadTables();
+}
+
+async function loadTables() {
+    const connectionId = document.getElementById('connectionSelect').value;
+    const container = document.getElementById('tables-list');
+    
+    if (!connectionId) {
+        container.innerHTML = '<p class="text-muted mb-0">Select a connection to view tables</p>';
+        return;
+    }
+    
+    currentConnectionId = connectionId;
+    container.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Loading tables...</div>';
+    
+    try {
+        const response = await axios.get(`/api/oracle/connections/${connectionId}/tables`);
+        const tables = response.data;
+        
+        if (tables.length === 0) {
+            container.innerHTML = '<p class="text-muted mb-0">No tables found</p>';
+            return;
+        }
+        
+        let html = '<div class="list-group list-group-flush">';
+        tables.forEach(table => {
+            html += `
+                <a href="#" class="list-group-item list-group-item-action" 
+                   onclick="loadTableDetails('${table.table_name}')">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">${table.table_name}</h6>
+                            ${table.num_rows ? `<small class="text-muted">${table.num_rows} rows</small>` : ''}
+                        </div>
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                </a>
+            `;
+        });
+        html += '</div>';
+        
+        container.innerHTML = html;
+    } catch (error) {
+        console.error('Error loading tables:', error);
+        container.innerHTML = '<p class="text-danger mb-0">Error loading tables</p>';
+    }
+}
+
+async function loadTableDetails(tableName) {
+    if (!currentConnectionId) return;
+    
+    const container = document.getElementById('table-details');
+    container.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Loading table details...</div>';
+    
+    try {
+        const response = await axios.get(`/api/oracle/connections/${currentConnectionId}/tables/${tableName}/columns`);
+        const columns = response.data;
+        
+        let html = `
+            <h6 class="mb-3">Table: ${tableName}</h6>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Column</th>
+                            <th>Type</th>
+                            <th>Length</th>
+                            <th>Nullable</th>
+                            <th>ES Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        columns.forEach(col => {
+            html += `
+                <tr>
+                    <td><strong>${col.column_name}</strong></td>
+                    <td>${col.data_type}</td>
+                    <td>${col.data_length || '-'}</td>
+                    <td>
+                        <span class="badge ${col.nullable ? 'bg-warning' : 'bg-success'}">
+                            ${col.nullable ? 'Yes' : 'No'}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge bg-info">${col.elasticsearch_type}</span>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-3">
+                <button class="btn btn-primary" onclick="generateSelectQuery('${tableName}')">
+                    <i class="fas fa-code me-1"></i>Generate SELECT Query
+                </button>
+            </div>
+        `;
+        
+        container.innerHTML = html;
+    } catch (error) {
+        console.error('Error loading table details:', error);
+        container.innerHTML = '<p class="text-danger mb-0">Error loading table details</p>';
+    }
+}
+
+function generateSelectQuery(tableName) {
+    const query = `SELECT * FROM ${tableName}`;
+    document.getElementById('sqlQuery').value = query;
+}
+
+async function analyzeQuery() {
+    const query = document.getElementById('sqlQuery').value.trim();
+    const connectionId = currentConnectionId;
+    
+    if (!query || !connectionId) {
+        alert('Please select a connection and enter a query');
+        return;
+    }
+    
+    const container = document.getElementById('query-analysis');
+    container.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Analyzing query...</div>';
+    
+    try {
+        const response = await axios.post(`/api/oracle/connections/${connectionId}/query/analyze`, {
+            query: query
+        });
+        
+        const analysis = response.data;
+        const columns = analysis.columns;
+        
+        let html = `
+            <h6 class="mb-3">Query Analysis Results</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>Oracle Type</th>
+                            <th>ES Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        columns.forEach(col => {
+            html += `
+                <tr>
+                    <td><strong>${col.field}</strong></td>
+                    <td>${col.oracle_type}</td>
+                    <td><span class="badge bg-info">${col.elasticsearch_type}</span></td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-3">
+                <button class="btn btn-success" onclick="proceedToMapping()">
+                    <i class="fas fa-arrow-right me-1"></i>Proceed to Mapping
+                </button>
+            </div>
+        `;
+        
+        container.innerHTML = html;
+    } catch (error) {
+        console.error('Error analyzing query:', error);
+        container.innerHTML = '<p class="text-danger mb-0">Error analyzing query: ' + 
+            (error.response?.data?.error || 'Unknown error') + '</p>';
+    }
+}
+
+async function executeQuery() {
+    const query = document.getElementById('sqlQuery').value.trim();
+    const connectionId = currentConnectionId;
+    
+    if (!query || !connectionId) {
+        alert('Please select a connection and enter a query');
+        return;
+    }
+    
+    try {
+        const response = await axios.post(`/api/oracle/connections/${connectionId}/query/execute`, {
+            query: query,
+            limit: 5
+        });
+        
+        const results = response.data;
+        
+        // Show results in a new modal or alert
+        let message = `Query executed successfully!\n\nColumns: ${results.columns.join(', ')}\n\nSample rows: ${results.total_rows}`;
+        alert(message);
+    } catch (error) {
+        console.error('Error executing query:', error);
+        alert('Error executing query: ' + (error.response?.data?.error || 'Unknown error'));
+    }
+}
+
+function clearQuery() {
+    document.getElementById('sqlQuery').value = '';
+    document.getElementById('query-analysis').innerHTML = 
+        '<p class="text-muted mb-0">Enter and analyze a query to see column information</p>';
+}
+
+function proceedToMapping() {
+    // Store query and connection info in sessionStorage for the mapping interface
+    sessionStorage.setItem('oracleConnectionId', currentConnectionId);
+    sessionStorage.setItem('oracleQuery', document.getElementById('sqlQuery').value);
+    
+    // Navigate to mapping interface
+    window.location.href = '/mapping-interface';
+}
+</script>
+{% endblock %}

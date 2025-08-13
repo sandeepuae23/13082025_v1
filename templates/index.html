@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Oracle to Elasticsearch Migration{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-tachometer-alt me-2"></i>
+            Migration Dashboard
+        </h1>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary">
+            <div class="card-body text-center">
+                <i class="fas fa-database fa-2x mb-3"></i>
+                <h3 class="card-title">{{ oracle_connections }}</h3>
+                <p class="card-text">Oracle Connections</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success">
+            <div class="card-body text-center">
+                <i class="fas fa-search fa-2x mb-3"></i>
+                <h3 class="card-title">{{ es_connections }}</h3>
+                <p class="card-text">Elasticsearch Connections</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-info">
+            <div class="card-body text-center">
+                <i class="fas fa-project-diagram fa-2x mb-3"></i>
+                <h3 class="card-title">{{ mappings }}</h3>
+                <p class="card-text">Active Mappings</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-warning">
+            <div class="card-body text-center">
+                <i class="fas fa-tasks fa-2x mb-3"></i>
+                <h3 class="card-title" id="running-jobs">-</h3>
+                <p class="card-text">Running Jobs</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-bolt me-2"></i>
+                    Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <a href="{{ url_for('main.oracle_explorer') }}" class="btn btn-primary w-100">
+                            <i class="fas fa-database me-2"></i>
+                            Explore Oracle
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{{ url_for('main.elasticsearch_explorer') }}" class="btn btn-success w-100">
+                            <i class="fas fa-search me-2"></i>
+                            Explore Elasticsearch
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{{ url_for('main.mapping_interface') }}" class="btn btn-info w-100">
+                            <i class="fas fa-project-diagram me-2"></i>
+                            Create Mapping
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <button class="btn btn-warning w-100" onclick="startNewMigration()">
+                            <i class="fas fa-play me-2"></i>
+                            Start Migration
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-clock me-2"></i>
+                    Recent Migration Jobs
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="recent-jobs">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-spinner fa-spin me-2"></i>
+                        Loading recent jobs...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-line me-2"></i>
+                    System Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="system-status">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-spinner fa-spin me-2"></i>
+                        Checking system status...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Start Migration Modal -->
+<div class="modal fade" id="startMigrationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Start New Migration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="startMigrationForm">
+                    <div class="mb-3">
+                        <label for="mappingSelect" class="form-label">Select Mapping Configuration</label>
+                        <select class="form-select" id="mappingSelect" required>
+                            <option value="">Choose a mapping...</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="confirmStartMigration()">
+                    <i class="fas fa-play me-2"></i>Start Migration
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block additional_js %}
+<script>
+// Load dashboard data on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadRecentJobs();
+    loadSystemStatus();
+    loadRunningJobsCount();
+    
+    // Refresh data every 30 seconds
+    setInterval(function() {
+        loadRunningJobsCount();
+        loadSystemStatus();
+    }, 30000);
+});
+
+async function loadRecentJobs() {
+    try {
+        const response = await axios.get('/api/migration/jobs');
+        const jobs = response.data.slice(0, 5); // Get latest 5 jobs
+        
+        const container = document.getElementById('recent-jobs');
+        
+        if (jobs.length === 0) {
+            container.innerHTML = '<p class="text-muted mb-0">No migration jobs found</p>';
+            return;
+        }
+        
+        let html = '<div class="list-group list-group-flush">';
+        
+        jobs.forEach(job => {
+            const statusBadge = getStatusBadge(job.status);
+            const progress = job.progress_percentage || 0;
+            
+            html += `
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-1">${job.mapping_configuration_name}</h6>
+                            <small class="text-muted">Created: ${new Date(job.created_at).toLocaleString()}</small>
+                        </div>
+                        ${statusBadge}
+                    </div>
+                    ${job.status === 'running' ? `
+                        <div class="progress mt-2" style="height: 6px;">
+                            <div class="progress-bar" style="width: ${progress}%"></div>
+                        </div>
+                        <small class="text-muted">${Math.round(progress)}% complete</small>
+                    ` : ''}
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+    } catch (error) {
+        console.error('Error loading recent jobs:', error);
+        document.getElementById('recent-jobs').innerHTML = 
+            '<p class="text-danger mb-0">Error loading recent jobs</p>';
+    }
+}
+
+async function loadSystemStatus() {
+    try {
+        // Check Oracle connections
+        const oracleResponse = await axios.get('/api/oracle/connections');
+        const oracleCount = oracleResponse.data.length;
+        
+        // Check Elasticsearch connections
+        const esResponse = await axios.get('/api/elasticsearch/connections');
+        const esCount = esResponse.data.length;
+        
+        const container = document.getElementById('system-status');
+        
+        let html = `
+            <div class="row text-center">
+                <div class="col-6">
+                    <div class="border-end">
+                        <h4 class="text-primary">${oracleCount}</h4>
+                        <small class="text-muted">Oracle Connections</small>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <h4 class="text-success">${esCount}</h4>
+                    <small class="text-muted">ES Connections</small>
+                </div>
+            </div>
+            <hr>
+            <div class="text-center">
+                <span class="badge bg-success">
+                    <i class="fas fa-check me-1"></i>System Operational
+                </span>
+            </div>
+        `;
+        
+        container.innerHTML = html;
+    } catch (error) {
+        console.error('Error loading system status:', error);
+        document.getElementById('system-status').innerHTML = 
+            '<p class="text-danger mb-0">Error loading system status</p>';
+    }
+}
+
+async function loadRunningJobsCount() {
+    try {
+        const response = await axios.get('/api/migration/jobs');
+        const runningJobs = response.data.filter(job => job.status === 'running').length;
+        document.getElementById('running-jobs').textContent = runningJobs;
+    } catch (error) {
+        console.error('Error loading running jobs count:', error);
+        document.getElementById('running-jobs').textContent = 'Error';
+    }
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'pending': 'bg-warning',
+        'running': 'bg-primary',
+        'completed': 'bg-success',
+        'failed': 'bg-danger',
+        'stopped': 'bg-secondary'
+    };
+    
+    return `<span class="badge ${badges[status] || 'bg-secondary'}">${status}</span>`;
+}
+
+async function startNewMigration() {
+    try {
+        // Load available mappings
+        const response = await axios.get('/api/mapping/configurations');
+        const mappings = response.data;
+        
+        const select = document.getElementById('mappingSelect');
+        select.innerHTML = '<option value="">Choose a mapping...</option>';
+        
+        mappings.forEach(mapping => {
+            select.innerHTML += `<option value="${mapping.id}">${mapping.name}</option>`;
+        });
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('startMigrationModal'));
+        modal.show();
+    } catch (error) {
+        console.error('Error loading mappings:', error);
+        alert('Error loading mapping configurations');
+    }
+}
+
+async function confirmStartMigration() {
+    const mappingId = document.getElementById('mappingSelect').value;
+    
+    if (!mappingId) {
+        alert('Please select a mapping configuration');
+        return;
+    }
+    
+    try {
+        await axios.post('/api/migration/jobs', {
+            mapping_configuration_id: parseInt(mappingId)
+        });
+        
+        // Close modal
+        bootstrap.Modal.getInstance(document.getElementById('startMigrationModal')).hide();
+        
+        // Refresh data
+        loadRecentJobs();
+        loadRunningJobsCount();
+        
+        alert('Migration job started successfully!');
+    } catch (error) {
+        console.error('Error starting migration:', error);
+        alert('Error starting migration job');
+    }
+}
+</script>
+{% endblock %}
