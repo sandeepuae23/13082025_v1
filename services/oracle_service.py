@@ -36,13 +36,9 @@ class OracleService:
             if not self._connection:
                 self.connect()
 
-            # Return mock table information
-            return [
-                {'table_name': 'ORDERS', 'num_rows': 1000},
-                {'table_name': 'CUSTOMERS', 'num_rows': 500},
-                {'table_name': 'ORDER_ITEMS', 'num_rows': 5000},
-                {'table_name': 'PRODUCTS', 'num_rows': 200}
-            ]
+            logger.warning("Table retrieval not implemented; returning empty list")
+            # TODO: implement real table lookup against Oracle connection
+            return []
         except Exception as e:
             logger.error(f"Error fetching tables: {e}")
             return []
