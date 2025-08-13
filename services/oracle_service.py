@@ -7,6 +7,14 @@ import logging
 import sqlparse
 from typing import List, Dict, Any, Optional
 
+try:  # pragma: no cover - optional dependency
+    import oracledb  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    try:
+        import cx_Oracle as oracledb  # type: ignore
+    except Exception:
+        oracledb = None  # type: ignore
+
 logger = logging.getLogger(__name__)
 
 class OracleService:
@@ -16,21 +24,130 @@ class OracleService:
         self.connection_config = oracle_connection
         self._connection = None
     
-    def connect(self):
+    def connect(self) -> Optional[Any]:
         """Establish connection to Oracle database"""
+        if self._connection:
+            return self._connection
+
+        if not oracledb:
+            logger.error("Oracle client library is not installed")
+            return None
+
         try:
-            # For development purposes - would normally use cx_Oracle
-            logger.info(f"Connecting to Oracle: {self.connection_config.host}:{self.connection_config.port}")
-            
-            # Mock connection for now
-            self._connection = "mock_oracle_connection"
-            return True
-            
-        except Exception as e:
+            dsn = oracledb.makedsn(
+                self.connection_config.host,
+                self.connection_config.port,
+                service_name=self.connection_config.service_name,
+            )
+            self._connection = oracledb.connect(
+                user=self.connection_config.username,
+                password=self.connection_config.password,
+                dsn=dsn,
+            )
+            logger.info(
+                f"Connected to Oracle: {self.connection_config.host}:{self.connection_config.port}"
+            )
+            return self._connection
+        except Exception as e:  # pragma: no cover - network interaction
             logger.error(f"Failed to connect to Oracle: {e}")
-            return False
-    
-    def analyze_query(self, query: str) -> Dict[str, Any]:
+            self._connection = None
+            return None
+
+    def get_tables(self) -> List[Dict[str, Any]]:
+        """Retrieve available tables from the Oracle connection"""
+        try:
+            conn = self.connect()
+            if not conn:
+                return []
+
+            cursor = conn.cursor()
+            owner = self.connection_config.username.upper()
+            cursor.execute(
+                """
+                SELECT table_name, NVL(num_rows, 0) AS num_rows
+                FROM all_tables
+                WHERE owner = :owner
+                ORDER BY table_name
+                """,
+                owner=owner,
+            )
+            tables = [
+                {"table_name": row[0], "num_rows": int(row[1])}
+                for row in cursor.fetchall()
+            ]
+            cursor.close()
+            return tables
+        except Exception as e:  # pragma: no cover - network interaction
+            logger.error(f"Error fetching tables: {e}")
+            return []
+
+    def get_table_columns(self, table_name: str) -> List[Dict[str, Any]]:
+        """Retrieve column metadata for a specific table"""
+        try:
+            if not self._connection:
+                self.connect()
+
+            fields = self._get_mock_table_fields(table_name)
+            return [
+                {
+                    'column_name': field['name'],
+                    'data_type': field['type'],
+                    'data_length': None,
+                    'nullable': True,
+                    'elasticsearch_type': self._map_oracle_to_es(field['type'])
+                }
+                for field in fields
+            ]
+        except Exception as e:
+            logger.error(f"Error fetching columns for {table_name}: {e}")
+            return []
+
+    def _map_oracle_to_es(self, oracle_type: str) -> str:
+        """Map Oracle data types to Elasticsearch types"""
+        oracle_type = oracle_type.upper()
+        if 'NUMBER' in oracle_type:
+            return 'integer'
+        if 'DATE' in oracle_type or 'TIMESTAMP' in oracle_type:
+            return 'text'
+
+
+    def analyze_query(self, query):
+        """Analyze SQL query and extract column information"""
+        try:
+            conn = self.connect()
+            cursor = conn.cursor()
+
+            # Use DESCRIBE to get column information without executing the full query
+            describe_query = f"SELECT * FROM ({query}) WHERE ROWNUM = 0"
+            cursor.execute(describe_query)
+
+            columns = []
+            for desc in cursor.description:
+                column_name = desc[0]
+                oracle_type = self._get_oracle_type_name(desc[1])
+
+                columns.append({
+                    'field': column_name.lower(),
+                    'oracle_type': oracle_type,
+                    'elasticsearch_type': self._map_oracle_to_es_type(oracle_type),
+                    'source': self._extract_source_from_query(query, column_name)
+                })
+
+            cursor.close()
+
+            # Parse query for additional information
+            joins = self._extract_joins_from_query(query)
+
+            return {
+                'columns': columns,
+                'joins': joins,
+                'query_type': 'SELECT'
+            }
+        except Exception as e:
+            logger.error(f"Error analyzing query: {str(e)}")
+            raise
+
+    def analyze_query_v1(self, query: str) -> Dict[str, Any]:
         """Analyze Oracle query and extract metadata"""
         try:
             # Parse the SQL query
@@ -205,31 +322,49 @@ class OracleService:
             ]
         
         return []
-    
-    def execute_query(self, query: str, limit: int = 1000) -> List[Dict]:
-        """Execute query and return results"""
+
+    def execute_query(self, query, limit=10):
+        """Execute SQL query and return sample results"""
         try:
-            if not self._connection:
-                self.connect()
-            
-            # Mock query execution
-            logger.info(f"Executing Oracle query: {query[:100]}...")
-            
-            # Return mock data based on query analysis
-            analysis = self.analyze_query(query)
-            mock_data = []
-            
-            for i in range(min(10, limit)):  # Return up to 10 mock records
-                record = {}
-                for field in analysis['fields']:
-                    record[field['name']] = self._generate_mock_value(field['type'], i)
-                mock_data.append(record)
-            
-            return mock_data
-            
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            # Add ROWNUM limit if not present
+            if 'ROWNUM' not in query.upper() and 'LIMIT' not in query.upper():
+                limited_query = f"SELECT * FROM ({query}) WHERE ROWNUM <= {limit}"
+            else:
+                limited_query = query
+
+            cursor.execute(limited_query)
+
+            # Get column names
+            column_names = [desc[0] for desc in cursor.description]
+
+            # Fetch results
+            rows = cursor.fetchall()
+            results = []
+            for row in rows:
+                row_dict = {}
+                for i, value in enumerate(row):
+                    # Convert Oracle types to JSON-serializable types
+                    if hasattr(value, 'isoformat'):  # Date/Datetime
+                        row_dict[column_names[i]] = value.isoformat()
+                    elif isinstance(value, (int, float, str)) or value is None:
+                        row_dict[column_names[i]] = value
+                    else:
+                        row_dict[column_names[i]] = str(value)
+                results.append(row_dict)
+
+            cursor.close()
+
+            return {
+                'columns': column_names,
+                'rows': results,
+                'total_rows': len(results)
+            }
         except Exception as e:
-            logger.error(f"Error executing query: {e}")
-            return []
+            logger.error(f"Error executing query: {str(e)}")
+            raise
     
     def _generate_mock_value(self, data_type: str, index: int = 0):
         """Generate mock value based on data type"""
@@ -280,3 +415,76 @@ class OracleService:
                 logger.info("Oracle connection closed")
         except Exception as e:
             logger.error(f"Error closing Oracle connection: {e}")
+
+
+    def _get_oracle_type_name(self, type_code):
+        """Convert Oracle type code to type name"""
+        type_codes = {
+            oracledb.DB_TYPE_VARCHAR: 'VARCHAR2',
+            oracledb.DB_TYPE_CHAR: 'CHAR',
+            oracledb.DB_TYPE_NUMBER: 'NUMBER',
+            oracledb.DB_TYPE_DATE: 'DATE',
+            oracledb.DB_TYPE_TIMESTAMP: 'TIMESTAMP',
+            oracledb.DB_TYPE_CLOB: 'CLOB',
+            oracledb.DB_TYPE_BLOB: 'BLOB',
+            oracledb.DB_TYPE_BINARY_FLOAT: 'BINARY_FLOAT',
+            oracledb.DB_TYPE_BINARY_DOUBLE: 'BINARY_DOUBLE'
+        }
+        return type_codes.get(type_code, 'UNKNOWN')
+
+    def _extract_source_from_query(self, query, column_name):
+        """Extract source table and column from query"""
+        # This is a simplified implementation
+        # In a production system, you would want a more sophisticated SQL parser
+        try:
+            parsed = sqlparse.parse(query)[0]
+            # Basic extraction - would need more sophisticated parsing for complex queries
+            return f"query.{column_name}"
+        except:
+            return f"query.{column_name}"
+
+    def _extract_joins_from_query(self, query):
+        """Extract JOIN information from query"""
+        joins = []
+        try:
+            # Simple regex-based extraction for demonstration
+            # In production, use a proper SQL parser
+            query_upper = query.upper()
+            if 'JOIN' in query_upper:
+                # This is a simplified extraction
+                # Would need more sophisticated parsing for production
+                joins.append({'type': 'INNER', 'condition': 'Detected in query'})
+        except:
+            pass
+        return joins
+
+    def _map_oracle_to_es_type(self, oracle_type):
+        """Map Oracle data types to Elasticsearch types"""
+        type_mapping = {
+            'NUMBER': 'long',
+            'FLOAT': 'float',
+            'BINARY_FLOAT': 'float',
+            'BINARY_DOUBLE': 'double',
+            'VARCHAR2': 'text',
+            'CHAR': 'keyword',
+            'NVARCHAR2': 'text',
+            'NCHAR': 'keyword',
+            'CLOB': 'text',
+            'NCLOB': 'text',
+            'DATE': 'date',
+            'TIMESTAMP': 'date',
+            'TIMESTAMP WITH TIME ZONE': 'date',
+            'TIMESTAMP WITH LOCAL TIME ZONE': 'date',
+            'BLOB': 'binary',
+            'RAW': 'binary',
+            'LONG RAW': 'binary'
+        }
+
+        # Handle NUMBER with precision/scale
+        if oracle_type.startswith('NUMBER'):
+            if ',' in oracle_type:  # Has decimal places
+                return 'double'
+            else:
+                return 'long'
+
+        return type_mapping.get(oracle_type, 'keyword')
