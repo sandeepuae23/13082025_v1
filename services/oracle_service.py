@@ -7,6 +7,14 @@ import logging
 import sqlparse
 from typing import List, Dict, Any, Optional
 
+try:  # pragma: no cover - optional dependency
+    import oracledb  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    try:
+        import cx_Oracle as oracledb  # type: ignore
+    except Exception:
+        oracledb = None  # type: ignore
+
 logger = logging.getLogger(__name__)
 
 class OracleService:
@@ -16,19 +24,92 @@ class OracleService:
         self.connection_config = oracle_connection
         self._connection = None
     
-    def connect(self):
+    def connect(self) -> Optional[Any]:
         """Establish connection to Oracle database"""
+        if self._connection:
+            return self._connection
+
+        if not oracledb:
+            logger.error("Oracle client library is not installed")
+            return None
+
         try:
-            # For development purposes - would normally use cx_Oracle
-            logger.info(f"Connecting to Oracle: {self.connection_config.host}:{self.connection_config.port}")
-            
-            # Mock connection for now
-            self._connection = "mock_oracle_connection"
-            return True
-            
-        except Exception as e:
+            dsn = oracledb.makedsn(
+                self.connection_config.host,
+                self.connection_config.port,
+                service_name=self.connection_config.service_name,
+            )
+            self._connection = oracledb.connect(
+                user=self.connection_config.username,
+                password=self.connection_config.password,
+                dsn=dsn,
+            )
+            logger.info(
+                f"Connected to Oracle: {self.connection_config.host}:{self.connection_config.port}"
+            )
+            return self._connection
+        except Exception as e:  # pragma: no cover - network interaction
             logger.error(f"Failed to connect to Oracle: {e}")
-            return False
+            self._connection = None
+            return None
+
+    def get_tables(self) -> List[Dict[str, Any]]:
+        """Retrieve available tables from the Oracle connection"""
+        try:
+            conn = self.connect()
+            if not conn:
+                return []
+
+            cursor = conn.cursor()
+            owner = self.connection_config.username.upper()
+            cursor.execute(
+                """
+                SELECT table_name, NVL(num_rows, 0) AS num_rows
+                FROM all_tables
+                WHERE owner = :owner
+                ORDER BY table_name
+                """,
+                owner=owner,
+            )
+            tables = [
+                {"table_name": row[0], "num_rows": int(row[1])}
+                for row in cursor.fetchall()
+            ]
+            cursor.close()
+            return tables
+        except Exception as e:  # pragma: no cover - network interaction
+            logger.error(f"Error fetching tables: {e}")
+            return []
+
+    def get_table_columns(self, table_name: str) -> List[Dict[str, Any]]:
+        """Retrieve column metadata for a specific table"""
+        try:
+            if not self._connection:
+                self.connect()
+
+            fields = self._get_mock_table_fields(table_name)
+            return [
+                {
+                    'column_name': field['name'],
+                    'data_type': field['type'],
+                    'data_length': None,
+                    'nullable': True,
+                    'elasticsearch_type': self._map_oracle_to_es(field['type'])
+                }
+                for field in fields
+            ]
+        except Exception as e:
+            logger.error(f"Error fetching columns for {table_name}: {e}")
+            return []
+
+    def _map_oracle_to_es(self, oracle_type: str) -> str:
+        """Map Oracle data types to Elasticsearch types"""
+        oracle_type = oracle_type.upper()
+        if 'NUMBER' in oracle_type:
+            return 'integer'
+        if 'DATE' in oracle_type or 'TIMESTAMP' in oracle_type:
+            return 'date'
+        return 'text'
     
     def analyze_query(self, query: str) -> Dict[str, Any]:
         """Analyze Oracle query and extract metadata"""
